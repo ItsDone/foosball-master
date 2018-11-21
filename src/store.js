@@ -14,11 +14,14 @@ const vuexLocalStorage = new VuexPersist({
   // filter: mutation => (true)
 })
 const plugins = [vuexLocalStorage.plugin]
-const state = {
-  players: [],
-  teams: [],
-  newTeams: [],
-  tournamentRounds: []
+const initialState = () => {
+  return {
+    players: [],
+    teams: [],
+    newTeams: [],
+    tournamentRounds: [],
+    winnerTeamId: null
+  }
 }
 
 const getters = {
@@ -48,13 +51,13 @@ const getters = {
     ),
   teamDetails: (state, getters) => teamIds => {
     const teamsData = {}
-    for (const teamId in teamIds) {
+    teamIds.forEach(teamId => {
       const teamData = { ...getters.getTeam(teamId), players: [] }
       teamData.playersIds.forEach(playerId => {
         teamData.players.push(getters.getPlayer(playerId))
       })
       teamsData[teamId] = teamData
-    }
+    })
     return teamsData
   }
 }
@@ -94,7 +97,6 @@ const mutations = {
     const teamId = Math.max(maxId(state.newTeams), maxId(state.teams)) + 1
     const team = {
       teamId,
-      name: '',
       playersIds: teamPlayers.map(player => player.playerId),
       new: true
     }
@@ -105,32 +107,50 @@ const mutations = {
   },
   cancelNewTeams (state) {
     state.newTeams.forEach(team => {
-      team.players.forEach(player => delete player.team)
+      team.playersIds.forEach(playerId => {
+        state.players.find(player => player.playerId === playerId).teamId = null
+      })
     })
     state.newTeams = []
   },
-  createTeam (state, newTeamId) {
+  createTeam (state, { teamId, name, icon }) {
     const newTeamIndex = state.newTeams.findIndex(
-      team => team.teamId === newTeamId
+      team => team.teamId === teamId
     )
     state.newTeams[newTeamIndex].new = false
-    state.teams.push(Object.assign({}, state.newTeams[newTeamIndex]))
+    state.teams.push(Object.assign({ name, icon }, state.newTeams[newTeamIndex]))
     state.newTeams.splice(newTeamIndex, 1)
   },
   cancelTournament (state) {
     state.tournamentRounds = []
+    state.winnerTeamId = null
   },
   addRound (state, round) {
     state.tournamentRounds.push(round)
   },
   finishMatch (state, { roundId, matchId, score }) {
     state.tournamentRounds[roundId][matchId].finished = true
-    for (const teamId in score) {
-      state.tournamentRounds[roundId][matchId].teamsScores[teamId] =
-        score[teamId]
+    let winnerScore = 0
+    let winnerId = 0
+
+    for (const teamId in state.tournamentRounds[roundId][matchId].teamsScores) {
+      if (!score[teamId])score[teamId] = 0
+      state.tournamentRounds[roundId][matchId].teamsScores[teamId] = score[teamId]
+      if (score[teamId] >= winnerScore) {
+        winnerScore = score[teamId] || 0
+        winnerId = teamId
+      }
     }
+    state.tournamentRounds[roundId][matchId].winnerId = parseInt(winnerId)
+  },
+  setWinner (state, teamId) {
+    state.winnerTeamId = teamId
+  },
+  cleanup (state, teamId) {
+    Object.assign(state, initialState())
   }
 }
+
 const actions = {
   addPlayer ({ commit }, player) {
     commit('addPlayer', player)
@@ -158,15 +178,23 @@ const actions = {
     }
   },
 
-  createTeam ({ commit }, newTeamId) {
-    commit('createTeam', newTeamId)
+  createTeam ({ commit }, { teamId, name, icon }) {
+    commit('createTeam', { teamId, name, icon })
   },
 
   // Randomize matches
-  startTournament ({ commit, getters, state }) {
-    // get a shallow copy
-    const teams = state.teams.slice()
+  startTournament ({ commit, dispatch, state }) {
+    // to let Match component be destroyed
     commit('cancelTournament')
+    setTimeout(() => {
+      dispatch('addRound')
+    }, 0)
+  },
+  finishMatch ({ commit }, matchDetails) {
+    commit('finishMatch', matchDetails)
+  },
+  addRound ({ commit, state }, teamIds) {
+    const teams = teamIds ? state.teams.filter(team => teamIds.includes(team.teamId)) : state.teams.slice()
     const roundMatches = []
     while (teams.length > 1) {
       const matchTeams = {}
@@ -179,16 +207,24 @@ const actions = {
     }
     commit('addRound', roundMatches)
   },
-  finishMatch ({ commit, dispatch }, matchDetails) {
-    commit('finishMatch', matchDetails)
+
+  startNextRound ({ commit, dispatch, state }) {
+    const winnerTeamsIds = []
+    state.tournamentRounds[state.tournamentRounds.length - 1].forEach(match => {
+      winnerTeamsIds.push(match.winnerId)
+    })
+    dispatch('addRound', winnerTeamsIds)
   },
-  startNextRound ({ commit, dishpatch }) {
-    // TODO
+  endTournament ({ commit, state }) {
+    commit('setWinner', state.tournamentRounds[state.tournamentRounds.length - 1][0].winnerId)
+  },
+  cleanup ({ commit }) {
+    commit('cleanup')
   }
 }
 
 export default new Vuex.Store({
-  state,
+  state: initialState(),
   getters,
   mutations,
   actions,

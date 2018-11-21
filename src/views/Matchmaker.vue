@@ -1,5 +1,5 @@
 <template lang="pug">
-  v-container(text-xs-center wrap)
+  v-container.grid-list-md(text-xs-center wrap)
     v-layout
       v-flex(xs4 )
         app-status-list

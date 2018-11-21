@@ -36,7 +36,7 @@ export default {
 .v-list__tile__title{
   overflow: visible;
 }
-.flex-center{
-  align-items: center;
+.flex-center, .flex-center .v-toolbar__content{
+  justify-content: center;
 }
 </style>

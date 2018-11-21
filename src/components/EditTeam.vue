@@ -4,14 +4,14 @@
       v-card-text
         ul.teamPlayers
           li(v-for="playerId in team.playersIds" :key="playerId") {{ getPlayer()(playerId).name }}
-        v-text-field.pa-1(v-model.trim="team.name"
+        v-text-field.pa-1(v-model.trim="name"
                           required
                           outline
                           :error-messages="nameErrors()"
-                          @input="$v.team.name.$touch()"
-                          @blur="$v.team.name.$touch()"
+                          @input="$v.name.$touch()"
+                          @blur="$v.name.$touch()"
                           label="Team name")
-        app-icon-picker(v-model="team.icon" defaultIcon="random")
+        app-icon-picker(v-model="icon" defaultIcon="random")
         v-btn(type="submit" color="info" block) OK
 </template>
 
@@ -28,33 +28,32 @@ export default {
   props: ['team'],
   data () {
     return {
-      icon: null
+      icon: null,
+      name: ''
     }
   },
   validations: {
-    team: {
-      name: {
-        required,
-        minLength: minLength(3),
-        unique: function (val, obj) {
-          return this.$store.getters.teamNames.indexOf(val) === -1
-        }
+    name: {
+      required,
+      minLength: minLength(3),
+      unique: function (val, obj) {
+        return this.$store.getters.teamNames.indexOf(val) === -1
       }
     }
   },
   methods: {
     nameErrors () {
       const errors = []
-      if (!this.$v.team.name.$dirty) return errors
-      !this.$v.team.name.required && errors.push('Put your name in !!')
-      !this.$v.team.name.minLength && errors.push('Too short ..')
-      !this.$v.team.name.unique && errors.push('This one is already in.')
+      if (!this.$v.name.$dirty) return errors
+      !this.$v.name.required && errors.push('Put your name in !!')
+      !this.$v.name.minLength && errors.push('Too short ..')
+      !this.$v.name.unique && errors.push('This one is already in.')
       return errors
     },
     createTeam (teamId) {
       this.$v.$touch()
       if (!this.$v.$invalid) {
-        this.$store.dispatch('createTeam', teamId)
+        this.$store.dispatch('createTeam', { teamId, name: this.name, icon: this.icon })
       }
     },
     ...mapGetters(['getPlayer'])

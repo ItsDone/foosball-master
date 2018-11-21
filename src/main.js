@@ -9,6 +9,8 @@ Vue.config.productionTip = false
 
 Vue.use(Vuelidate)
 
+Vue.filter('joinAttributes', (arr, propName, separator = ' ') => arr.map(item => item[propName]).join(separator))
+
 new Vue({
   router,
   store,
